@@ -1,4 +1,4 @@
-name: Build ubo-minimal
+name: Build ubo-minimal and ubl-mini
 
 on:
    schedule:
@@ -13,7 +13,7 @@ jobs:
       runs-on: ubuntu-latest
 
       steps:
-         - name: Download filter lists
+         - name: Download uBlock Origin filter lists
            run: |
               urls=(
                  https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt
@@ -39,24 +39,55 @@ jobs:
                  curl -fsSL "$u"
               done > merged.txt
 
-         - name: Strip comments and empty lines
+         - name: Build ubo-minimal.txt
            run: |
               awk '
                  /^!#(if|endif)/ { print; next }
                  /^!/              { next }
                  NF
-              ' merged.txt > body.txt
+              ' merged.txt > ubo-body.txt
 
-         - name: Add header
-           run: |
               printf "! %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" > ubo-minimal.txt
-              cat body.txt >> ubo-minimal.txt
+              cat ubo-body.txt >> ubo-minimal.txt
+
+         - name: Download uBlacklist lists
+           run: |
+              urls=(
+                 https://raw.githubusercontent.com/NotaInutilis/Super-SEO-Spam-Suppressor/main/ublacklist.txt
+                 https://api.stopmodreposts.org/ublacklist.txt
+                 https://codeberg.org/legendary_creeper/mc-safebrowsing/raw/branch/main/mc-sb-ublacklist.txt
+              )
+
+              for u in "${urls[@]}"; do
+                 curl -fsSL "$u"
+              done > ubl-merged.txt
+
+         - name: Build ubl-mini.txt
+           run: |
+              awk '
+                 /^---$/                    { next }
+                 /^name:[[:space:]]*/       { next }
+                 /^description:/            { next }
+                 /^homepage:/               { next }
+                 /^#[[:space:]]*/           { next }
+                 NF
+              ' ubl-merged.txt \
+              | sort -u > ubl-body.txt
+
+              {
+                 echo "---"
+                 date '+%Y-%m-%d %H:%M:%S'
+                 echo "---"
+                 cat ubl-body.txt
+              } > ubl-mini.txt
 
          - name: Publish rolling release
            uses: softprops/action-gh-release@v2
            with:
               tag_name: latest
               name: Rolling release
-              files: ubo-minimal.txt
+              files: |
+                 ubo-minimal.txt
+                 ubl-mini.txt
            env:
               GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
