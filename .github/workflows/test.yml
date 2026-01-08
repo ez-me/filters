@@ -2,7 +2,7 @@ name: Build ubo-minimal
 
 on:
    schedule:
-      - cron: "0 3 * * 1"   # weekly (Monday)
+      - cron: "0 0 * * 1"   # weekly, Monday 00:00 UTC
    workflow_dispatch:
 
 permissions:
@@ -45,7 +45,12 @@ jobs:
                  /^!#(if|endif)/ { print; next }
                  /^!/              { next }
                  NF
-              ' merged.txt > ubo-minimal.txt
+              ' merged.txt > body.txt
+
+         - name: Add header
+           run: |
+              printf "! %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" > ubo-minimal.txt
+              cat body.txt >> ubo-minimal.txt
 
          - name: Publish rolling release
            uses: softprops/action-gh-release@v2
